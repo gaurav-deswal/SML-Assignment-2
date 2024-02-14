@@ -128,31 +128,86 @@ def qda_score(x, μ, Σ, prior):
         print(f"ERROR: An unexpected error occurred in QDA discriminant function: {e}")
         raise
 
+def classify_samples(samples, means, covariances, priors):
+    try:
+        predicted_classes = []
+        for x in samples:
+            scores = [qda_score(x, mean, cov, prior) for mean, cov, prior in zip(means, covariances, priors)]
+            predicted_classes.append(np.argmax(scores)) # Store the highest qda values
+        return np.array(predicted_classes)
+    except Exception as e:
+        print(f"ERROR: An error occurred during classification: {e}")
+        raise
+ 
+def calculate_accuracy(predicted_labels, true_labels):
+    try:
+        accuracy = np.mean(predicted_labels == true_labels)
+        return accuracy
+    except Exception as e:
+        print(f"An error occurred while calculating accuracy: {e}")
+        raise
 
+def calculate_class_wise_accuracy(predicted_labels, true_labels, num_classes=10):
+    try:
+        class_wise_accuracy = []
+        for i in range(num_classes):
+            class_mask = true_labels == i
+            correct_predictions = np.sum(predicted_labels[class_mask] == true_labels[class_mask])
+            total_predictions = np.sum(class_mask)
+            class_accuracy = correct_predictions / total_predictions if total_predictions > 0 else 0
+            class_wise_accuracy.append(class_accuracy)
+        return class_wise_accuracy
+    except Exception as e:
+        print(f"ERROR: An error occurred while calculating class-wise accuracy: {e}")
+        raise
+            
 def main():
     
-    # Replace 'mnist.npz' with the path to MNIST dataset file
-    file_path = 'mnist.npz'
-    train_images, train_labels, test_images, test_labels = load_mnist_dataset(file_path)
+    try:
+        # Replace 'mnist.npz' with the path to MNIST dataset file
+        file_path = 'mnist.npz'
+        train_images, train_labels, test_images, test_labels = load_mnist_dataset(file_path)
 
-    # Check the shape of the data
-    print("Training images shape:", train_images.shape)  # Should be (60000, 28, 28) <- There are 60K training images of size 28 pixels X 28 pixels
-    print("Training labels shape:", train_labels.shape)  # Should be (60000,)
-    print("Test images shape:", test_images.shape)       # Should be (10000, 28, 28)
-    print("Test labels shape:", test_labels.shape)       # Should be (10000,)
+        # Check the shape of the data
+        print("Training images shape:", train_images.shape)  # Should be (60000, 28, 28) <- There are 60K training images of size 28 pixels X 28 pixels
+        print("Training labels shape:", train_labels.shape)  # Should be (60000,)
+        print("Test images shape:", test_images.shape)       # Should be (10000, 28, 28)
+        print("Test labels shape:", test_labels.shape)       # Should be (10000,)
 
-    # Assuming train_images and train_labels are loaded and valid
-    visualize_training_samples(train_images, train_labels)   
-    
-    # Assuming train_images are loaded with shape (60000, 28, 28)
+        # Assuming train_images and train_labels are loaded and valid
+        visualize_training_samples(train_images, train_labels)   
+        
+        # Assuming train_images are loaded with shape (60000, 28, 28)
 
-    # Vectorize the training images
-    train_images_vectorized = train_images.reshape(train_images.shape[0], -1)
+        # Vectorize the training images
+        train_images_vectorized = train_images.reshape(train_images.shape[0], -1)
 
-    # Checking the shape of the vectorized images
-    print("\nShape of vectorized training images:", train_images_vectorized.shape)  # Expected: (60000, 784) 
-    
-    # Compute class statistics (means, covariances, and priors)
-    means, covariances, priors = compute_class_statistics(train_images_vectorized, train_labels)
-    
+        # Checking the shape of the vectorized images
+        print("\nShape of vectorized training images:", train_images_vectorized.shape)  # Expected: (60000, 784) 
+        
+        # Compute class statistics (means, covariances, and priors)
+        means, covariances, priors = compute_class_statistics(train_images_vectorized, train_labels)
+        
+        # Vectorize the testing images
+        test_images_vectorized = test_images.reshape(test_images.shape[0], -1)
+        
+        # Checking the shape of the vectorized images
+        print("Shape of vectorized testing images:", test_images_vectorized.shape)  # Expected: (10000, 784) 
+
+        # Classify the test samples
+        predicted_test_classes = classify_samples(test_images_vectorized, means, covariances, priors)
+        
+        # Calculate overall accuracy
+        overall_accuracy = calculate_accuracy(predicted_test_classes, test_labels)
+        print(f"Overall test accuracy: {overall_accuracy * 100:.2f}%")
+        
+        # Calculate class-wise accuracy
+        class_wise_accuracy = calculate_class_wise_accuracy(predicted_test_classes, test_labels)
+        for i, accuracy in enumerate(class_wise_accuracy):
+            print(f"Class {i} accuracy: {accuracy * 100:.2f}%")
+        
+        
+    except Exception as e:
+        print(f"ERROR: An error occurred in the main function: {e}")
+
 main()
