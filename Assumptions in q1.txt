@@ -1,0 +1,6 @@
+
+# Requirement Packages installed and used
+numpy == 1.26.4
+
+# Assumptions
+1. mnist.npz file is present in same folder as the source code q1.py
