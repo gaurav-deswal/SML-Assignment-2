@@ -110,8 +110,13 @@ def compute_class_statistics(images, labels):
 # •	P(ωi) is the prior probability of class xi.
 def qda_score(x, μ, Σ, prior):
     
+    regularization_value = 1e-6
+    
     try:
-        # Calculate the inverse of the covariance matrix
+        # Regularize the covariance matrix by adding a small value to the diagonal
+        Σ += np.eye(Σ.shape[0]) * regularization_value
+    
+        # Calculate the inverse of the regularized covariance matrix
         Σ_inv = np.linalg.inv(Σ)
         
         # Compute the discriminant score
@@ -122,7 +127,7 @@ def qda_score(x, μ, Σ, prior):
         return part1 + part2 + part3
     
     except np.linalg.LinAlgError as e:
-        print(f"ERROR: Covariance Matrix is non-invertible: {e}")
+        print(f"ERROR: Regularized Covariance Matrix is still non-invertible: {e}")
         raise
     except Exception as e:
         print(f"ERROR: An unexpected error occurred in QDA discriminant function: {e}")
