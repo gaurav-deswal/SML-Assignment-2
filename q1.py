@@ -101,6 +101,34 @@ def compute_class_statistics(images, labels):
             
     return means, covariances, priors
 
+# Function calculates the QDA score for a given sample and class parameters.
+# Formula- gi(x)= −(1/2)ln∣Σi∣ − (1/2)[(x - μi)T Σi-1(x - μi)] + lnP(ωi)
+# where-
+# • Σi is the covariance matrix of class i,
+# •	μi is the mean vector of class i,
+# •	x is the feature vector of the sample being classified,
+# •	P(ωi) is the prior probability of class xi.
+def qda_score(x, μ, Σ, prior):
+    
+    try:
+        # Calculate the inverse of the covariance matrix
+        Σ_inv = np.linalg.inv(Σ)
+        
+        # Compute the discriminant score
+        part1 = -0.5 * np.log(np.linalg.det(Σ))
+        part2 = -0.5 * np.dot(np.dot((x - μ).T, Σ_inv), (x - μ))
+        part3 = np.log(prior)
+        
+        return part1 + part2 + part3
+    
+    except np.linalg.LinAlgError as e:
+        print(f"ERROR: Covariance Matrix is non-invertible: {e}")
+        raise
+    except Exception as e:
+        print(f"ERROR: An unexpected error occurred in QDA discriminant function: {e}")
+        raise
+
+
 def main():
     
     # Replace 'mnist.npz' with the path to MNIST dataset file

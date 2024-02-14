@@ -5,3 +5,4 @@ matplotlib == 3.8.2
 
 # Assumptions
 1. mnist.npz file is present in same folder as the source code q1.py
+2. No of training samples and training labels for each sample are equal. 
