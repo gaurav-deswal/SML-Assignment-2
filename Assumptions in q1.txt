@@ -1,6 +1,7 @@
 
-# Requirement Packages installed and used
+# Make sure the following packages are installed on your Python Environment
 numpy == 1.26.4
+matplotlib == 3.8.2
 
 # Assumptions
 1. mnist.npz file is present in same folder as the source code q1.py
