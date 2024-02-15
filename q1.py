@@ -75,7 +75,10 @@ def compute_class_statistics(images, labels):
     means = []
     covariances = []
     priors = []
+    covariances_inv = []
+    log_det_cov = []
     total_classes = 10
+    regularization_value = 1e-6
     
     try:
         # Verify that the number of images and labels match
@@ -84,25 +87,35 @@ def compute_class_statistics(images, labels):
         
         # Calculate the mean, covariance and prior for each class
         for i in range(total_classes):
-            class_samples = images[labels == i]
             
+            class_samples = images[labels == i]
             # Ensure there are samples for the class
             if class_samples.size == 0:
                 raise ValueError(f"ERROR: No samples found for class {i}.")
             
-            means.append(np.mean(class_samples, axis=0))
+            mean = np.mean(class_samples, axis=0)
             
             if class_samples.shape[0] == 1:
                 # If there is only one sample, we cannot compute a covariance matrix.
                 raise ValueError(f"ERROR: Only one sample for class {i}. Hence, We can't compute covariance.")
-            covariances.append(np.cov(class_samples, rowvar=False))
+            
+            covariance = np.cov(class_samples, rowvar=False) + np.eye(class_samples.shape[1]) * regularization_value
+            cov_inverse = np.linalg.inv(covariance)
+            log_det = np.linalg.slogdet(covariance)[1]  # [1] is the log determinant
+                
+            
+            means.append(mean)    
+            covariances.append(covariance)
+            covariances_inv.append(cov_inverse)
+            log_det_cov.append(log_det)
             priors.append(class_samples.shape[0] / images.shape[0])
-    
+        
+           
     except Exception as e:
         print(f"ERORR: An error occurred while computing class statistics: {e}")
         raise
             
-    return means, covariances, priors
+    return means, covariances, covariances_inv, log_det_cov, priors
 
 # Function calculates the QDA score for a given sample and class parameters.
 # Formula- gi(x)= −(1/2)ln∣Σi∣ − (1/2)[(x - μi)T Σi-1(x - μi)] + lnP(ωi)
@@ -111,22 +124,15 @@ def compute_class_statistics(images, labels):
 # •	μi is the mean vector of class i,
 # •	x is the feature vector of the sample being classified,
 # •	P(ωi) is the prior probability of class xi.
-def qda_score(x, μ, Σ, prior):
+def qda_score(x, μ, Σ, Σ_inv, log_det_cov, prior):
     
     global sample_no
     sample_no += 1    
     print(f"QDA Score Computation for Sample #{sample_no}")
     
     try:
-        regularization_value = 1e-6
-        # Regularize the covariance matrix by adding a small value to the diagonal
-        Σ += np.eye(Σ.shape[0]) * regularization_value
-    
-        # Calculate the inverse of the regularized covariance matrix
-        Σ_inv = np.linalg.inv(Σ)
-        
-        # Compute the discriminant score
-        part1 = -0.5 * np.log(np.linalg.det(Σ))       
+        # Compute the discriminant score       
+        part1 = -0.5 * log_det_cov
         part2 = -0.5 * np.dot(np.dot((x - μ).T, Σ_inv), (x - μ))
         part3 = np.log(prior)
         
@@ -141,12 +147,12 @@ def qda_score(x, μ, Σ, prior):
         print(f"ERROR: An unexpected error occurred in QDA discriminant function: {e}")
         raise
 
-def classify_samples(samples, means, covariances, priors):
+def classify_samples(samples, means, covariances, covariances_inv, log_det_cov, priors):
     try:
         predicted_classes = []
         start_time = time.time()  # Start timing
         for x in samples:
-            scores = [qda_score(x, mean, cov, prior) for mean, cov, prior in zip(means, covariances, priors)]
+            scores = [qda_score(x, mean, cov, cov_inv, log_det, prior) for mean, cov, cov_inv, log_det, prior in zip(means, covariances, covariances_inv, log_det_cov, priors)]
             predicted_classes.append(np.argmax(scores)) # Store the highest qda values
     
     except Exception as e:
@@ -203,7 +209,7 @@ def main():
         print("\nShape of vectorized training images:", train_images_vectorized.shape)  # Expected: (60000, 784) 
         
         # Compute class statistics (means, covariances, and priors)
-        means, covariances, priors = compute_class_statistics(train_images_vectorized, train_labels)
+        means, covariances, covariances_inv, log_det_cov, priors = compute_class_statistics(train_images_vectorized, train_labels)
         
         # Vectorize the testing images
         test_images_vectorized = test_images.reshape(test_images.shape[0], -1)
@@ -212,7 +218,7 @@ def main():
         print("Shape of vectorized testing images:", test_images_vectorized.shape)  # Expected: (10000, 784) 
 
         # Classify the test samples
-        predicted_test_classes = classify_samples(test_images_vectorized, means, covariances, priors)
+        predicted_test_classes = classify_samples(test_images_vectorized, means, covariances, covariances_inv, log_det_cov, priors)
         
         # Calculate overall accuracy
         overall_accuracy = calculate_accuracy(predicted_test_classes, test_labels)
