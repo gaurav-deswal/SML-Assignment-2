@@ -50,6 +50,30 @@ def create_data_matrix(train_images, train_labels):
         print(f"ERROR: An unexpected error occurred: {e}")
         raise
 
+def remove_mean(X):
+    try:
+        # Ensure X is a 2-dimensional numpy array
+        if X.ndim != 2:
+            raise ValueError("Input X must be a 2-dimensional numpy array.")
+        
+        # Calculate the mean of each row (feature)
+        mean_vector = np.mean(X, axis=1)
+        
+        # Check if mean_vector contains NaN values which can occur if X has NaN values
+        if np.isnan(mean_vector).any():
+            raise ValueError("NaN values found in X. Cannot compute mean.")
+        
+        # Subtract the mean from each element in the row
+        X_centered = X - mean_vector[:, np.newaxis]
+        
+        return X_centered, mean_vector
+    except ValueError as e:
+        print(f"ValueError: {e}")
+        raise
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        raise
+
 def main():
     
     try:
@@ -69,10 +93,14 @@ def main():
         # Checking the shape of the vectorized images
         print("\nShape of vectorized training images:", train_images_vectorized.shape)  # Expected: (60000, 784)
         
-        # Create the 784x1000 data matrix
+        # Create X to represent our 784x1000 data matrix
         X = create_data_matrix(train_images_vectorized.T, train_labels)  # Transposed train_images_vectorized to get 60000x784 as input
         print("Shape of data matrix X:", X.shape)  # Should print (784, 1000)
         
+        # X is our data matrix from Step 1
+        X_centered, mean_vector = remove_mean(X)
+        print("Shape of centered data matrix X:", X_centered.shape)  # Should still be (784, 1000)
+
     except Exception as e:
         print(f"ERROR: An error occurred in the main function: {e}")
 
