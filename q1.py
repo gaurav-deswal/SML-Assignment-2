@@ -78,7 +78,7 @@ def compute_class_statistics(images, labels):
     covariances_inv = []
     log_det_cov = []
     total_classes = 10
-    regularization_value = 1e-6
+    regularization_value = 10000
     
     try:
         # Verify that the number of images and labels match
