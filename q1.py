@@ -233,4 +233,7 @@ def main():
     except Exception as e:
         print(f"ERROR: An error occurred in the main function: {e}")
 
-main()
+if __name__ == "__main__":
+    # Code here will only execute when the module is run directly, not when imported
+    print("This module was run directly and not imported.")
+    main()
