@@ -73,7 +73,42 @@ def remove_mean(X):
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         raise
+    
+# def apply_pca(X_centered):
+#     raise NotImplementedError
 
+def apply_pca(X_centered):
+    try:
+        # Ensure X_centered is 2-dimensional
+        if X_centered.ndim != 2:
+            raise ValueError("X_centered must be a 2-dimensional numpy array")
+
+        # Step 1: Compute the Covariance Matrix
+        num_samples = X_centered.shape[1]
+        S = np.dot(X_centered, X_centered.T) / (num_samples - 1) # Covariance S = XX^T/999
+        
+        # Step 2: Compute the eigenvectors and eigenvalues of the covariance matrix
+        eigenvalues, eigenvectors = np.linalg.eigh(S)  # eigh is used for symmetric matrices like S
+        
+        # Step 3: Sort the eigenvectors by decreasing eigenvalues
+        index = np.argsort(eigenvalues)[::-1]  # Get the indices that would sort eigenvalues in descending order
+        sorted_eigenvalues = eigenvalues[index]
+        sorted_eigenvectors = eigenvectors[:, index]
+        
+        # Step 4: Create matrix U from sorted eigenvectors
+        U = sorted_eigenvectors
+        
+        return U, sorted_eigenvalues        
+    except ValueError as e:
+        print(f"ValueError: {e}")
+        raise
+    except np.linalg.LinAlgError as e:
+        print(f"ERROR: Linear Algebra error during PCA. Failed to compute Eigenvalues and Eigenvectors: {e}")
+        raise
+    except Exception as e:
+        print(f"ERROR: An unexpected error occurred in the apply_pca function: {e}")
+        raise
+        
 def main():
     
     try:
@@ -97,12 +132,17 @@ def main():
         X = create_data_matrix(train_images_vectorized.T, train_labels)  # Transposed train_images_vectorized to get 60000x784 as input
         print("Shape of data matrix X:", X.shape)  # Should print (784, 1000)
         
-        # X is our data matrix from Step 1
+        # Compute X_centered by removing mean from X
         X_centered, mean_vector = remove_mean(X)
         print("Shape of centered data matrix X:", X_centered.shape)  # Should still be (784, 1000)
 
+        # Compute Principal Component matrix U (eigenvectors sorted by eigenvalues)
+        U, sorted_eigenvalues = apply_pca(X_centered)
+        print("\nPCA applied successfully.")
+        # print(f"\nPrincipal Component Matrix U (Eigenvectors sorted by Eigenvalues): {U}")
+    
     except Exception as e:
-        print(f"ERROR: An error occurred in the main function: {e}")
+        print(f"ERROR: An unexpected error occurred in the main function: {e}")
 
 if __name__ == "__main__":
     # Code here will only execute when the module is run directly, not when imported
