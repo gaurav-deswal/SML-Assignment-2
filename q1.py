@@ -37,8 +37,8 @@ def visualize_training_samples(train_images, train_labels):
         if train_images.shape[0] != train_labels.shape[0]:
             raise ValueError("ERROR: The number of images and labels must match.")
         
-        # Creates a figure and a grid of subplots with 10 rows and 5 columns, setting the figure size to 6x6 inches. This grid is for displaying 5 samples from each of the 10 classes (digits).
-        fig, axes = plt.subplots(10, 5, figsize=(6, 6))
+        # Creates a figure and a grid of subplots with 10 rows and 5 columns, setting the figure size to 12x12 inches. This grid is for displaying 5 samples from each of the 10 classes (digits).
+        fig, axes = plt.subplots(10, 5, figsize=(12, 12))
         
         # Flattens the 2D array of axes into a 1D array to make it easier to index into them in a linear fashion.
         axes = axes.flatten()
