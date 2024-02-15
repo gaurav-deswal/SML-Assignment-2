@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 from q1 import load_mnist_dataset
 
 def create_data_matrix(train_images, train_labels):
@@ -108,7 +109,73 @@ def apply_pca(X_centered):
     except Exception as e:
         print(f"ERROR: An unexpected error occurred in the apply_pca function: {e}")
         raise
+
+def reconstruct_data(U, X_centered):
+    try:
+        # Step 1: Perform Y = U^T X
+        Y = np.dot(U.T, X_centered)
         
+        # Step 2: Reconstruct X_recon = UY
+        X_recon = np.dot(U, Y)
+        
+        return X_recon
+    except Exception as e:
+        print(f"ERROR: An unexpected error occurred in the reconstruct_data function during data reconstruction: {e}")
+        raise
+
+def calculate_mse(X, X_recon):
+    try:
+        mse = np.mean((X - X_recon) ** 2)
+        return mse
+    except Exception as e:
+        print(f"ERROR: An unexpected error occurred in the calculate_mse function while calculating MSE: {e}")
+        raise
+
+def reconstruct_and_plot_images(U, X_centered, mean_vector, train_labels, num_components = 5):
+    try:
+        # Step 1: Select the first p eigenvectors from U to form Up
+        Up = U[:, :num_components]
+        
+        # Step 2: Compute Y = Up^T X_centered
+        Y = np.dot(Up.T, X_centered)
+        
+        # Step 3: Reconstruct the data X_recon = UpY
+        X_recon = np.dot(Up, Y)
+        
+        # Step 4: Add back the mean to each feature
+        X_recon += mean_vector[:, np.newaxis]
+        
+        # Plotting 5 images from each class
+        fig, axes = plt.subplots(10, 5, figsize=(12, 12))
+        
+        for class_id in range(10):
+            # Find indices of all samples belonging to the current class
+            class_indices = np.where(train_labels == class_id)[0]
+            if class_indices.size < 5:
+                raise ValueError(f"Not enough samples for class {class_id} to display. Needed 5, got {class_indices.size}.")
+            
+            # Select distinct indices for plotting
+            selected_indices = class_indices[:5]  # Select first 5 samples per class
+            
+            for i, idx in enumerate(selected_indices):
+                # Plotting the reconstructed images
+                img = X_recon[:, idx].reshape(28, 28)
+                ax = axes[class_id, i]
+                ax.imshow(img, interpolation='nearest') # For grayscale images
+                ax.axis('off')
+                if i == 0:
+                    ax.set_title(f'Class {class_id}, p={num_components}')
+        plt.suptitle(f'Reconstructed Images with p={num_components}', fontsize=12)
+        plt.tight_layout()
+        plt.show()
+    
+    except ValueError as e:
+        print(f"ValueError: {e}")
+        raise  
+    except Exception as e:
+        print(f"ERROR: An unexpected error occurred in reconstruct_and_plot_images function during image reconstruction and plotting for p={num_components}: {e}")
+        raise
+               
 def main():
     
     try:
@@ -140,6 +207,16 @@ def main():
         U, sorted_eigenvalues = apply_pca(X_centered)
         print("\nPCA applied successfully.")
         # print(f"\nPrincipal Component Matrix U (Eigenvectors sorted by Eigenvalues): {U}")
+        
+        # X_recon = UY where Y = U^TX
+        X_recon = reconstruct_data(U, X_centered)
+        # Compute mse between X and X_recon and print the same. It should be close to 0.
+        mse = calculate_mse(X_centered, X_recon)
+        print(f"\nMSE between X and X_recon = {mse}\n")
+        
+        # Reconstruct and Plot Images
+        for p in [5, 10, 20]: # Note as p value increases, reconstructed images should look more like their original counterparts
+            reconstruct_and_plot_images(U, X_centered, mean_vector, train_labels, p)
     
     except Exception as e:
         print(f"ERROR: An unexpected error occurred in the main function: {e}")
