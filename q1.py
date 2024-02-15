@@ -1,5 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import time
+
+sample_no = 0
 
 def load_mnist_dataset(file_path):
     try:
@@ -110,9 +113,12 @@ def compute_class_statistics(images, labels):
 # •	P(ωi) is the prior probability of class xi.
 def qda_score(x, μ, Σ, prior):
     
-    regularization_value = 1e-6
+    global sample_no
+    sample_no += 1    
+    print(f"QDA Score Computation for Sample #{sample_no}")
     
     try:
+        regularization_value = 1e-6
         # Regularize the covariance matrix by adding a small value to the diagonal
         Σ += np.eye(Σ.shape[0]) * regularization_value
     
@@ -120,7 +126,7 @@ def qda_score(x, μ, Σ, prior):
         Σ_inv = np.linalg.inv(Σ)
         
         # Compute the discriminant score
-        part1 = -0.5 * np.log(np.linalg.det(Σ))
+        part1 = -0.5 * np.log(np.linalg.det(Σ))       
         part2 = -0.5 * np.dot(np.dot((x - μ).T, Σ_inv), (x - μ))
         part3 = np.log(prior)
         
@@ -129,6 +135,8 @@ def qda_score(x, μ, Σ, prior):
     except np.linalg.LinAlgError as e:
         print(f"ERROR: Regularized Covariance Matrix is still non-invertible: {e}")
         raise
+    except RuntimeWarning as e:
+        print(f"WARNING: A runtime warning occurred in QDA discriminant function: {e}")
     except Exception as e:
         print(f"ERROR: An unexpected error occurred in QDA discriminant function: {e}")
         raise
@@ -136,14 +144,18 @@ def qda_score(x, μ, Σ, prior):
 def classify_samples(samples, means, covariances, priors):
     try:
         predicted_classes = []
+        start_time = time.time()  # Start timing
         for x in samples:
             scores = [qda_score(x, mean, cov, prior) for mean, cov, prior in zip(means, covariances, priors)]
             predicted_classes.append(np.argmax(scores)) # Store the highest qda values
-        return np.array(predicted_classes)
+    
     except Exception as e:
         print(f"ERROR: An error occurred during classification: {e}")
         raise
- 
+    elapsed_time = time.time() - start_time  # Stop timing
+    print(f"\nClassification completed in {elapsed_time:.2f} seconds.")
+    return np.array(predicted_classes)
+
 def calculate_accuracy(predicted_labels, true_labels):
     try:
         accuracy = np.mean(predicted_labels == true_labels)
