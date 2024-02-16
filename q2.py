@@ -1,12 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from q1 import load_mnist_dataset
+from q1 import load_mnist_dataset, calculate_accuracy, calculate_class_wise_accuracy
 
-def create_data_matrix(train_images, train_labels):
+
+def create_data_matrix_and_labels(train_images, train_labels):
     try:
         num_samples_per_class = 100
         num_classes = 10
         image_size = 28 * 28  # Vectorized image size
+        selected_indices_list = []  # We will store the indices of selected samples
         
         # Check if train_images and train_labels have expected shapes
         if train_images.ndim != 2 or train_labels.ndim != 1:
@@ -28,6 +30,7 @@ def create_data_matrix(train_images, train_labels):
             # Step 2: Randomly select 100 unique samples from the identified class samples.
             # This ensures that we don't pick the same sample more than once.
             selected_indices = np.random.choice(class_indices, num_samples_per_class, replace=False)
+            selected_indices_list.extend(selected_indices) # We will return this list of 100 selected indices
             
             # Step 3: Retrieve the selected samples.
             # This involves fetching the images based on the indices we've chosen.
@@ -43,7 +46,10 @@ def create_data_matrix(train_images, train_labels):
             end_col = (class_id + 1) * num_samples_per_class
             X[:, start_col:end_col] = flattened_samples.T  # Transpose to match the dimensions of X.
         
-        return X
+        labels_subset = train_labels[selected_indices_list]
+        
+        return X, labels_subset
+    
     except ValueError as e:
         print(f"ValueError: {e}")
         raise
@@ -74,9 +80,6 @@ def remove_mean(X):
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         raise
-    
-# def apply_pca(X_centered):
-#     raise NotImplementedError
 
 def apply_pca(X_centered):
     try:
@@ -175,7 +178,97 @@ def reconstruct_and_plot_images(U, X_centered, mean_vector, train_labels, num_co
     except Exception as e:
         print(f"ERROR: An unexpected error occurred in reconstruct_and_plot_images function during image reconstruction and plotting for p={num_components}: {e}")
         raise
-               
+
+def compute_class_statistics_pca(Y_train, train_labels):
+    total_classes = 10
+    means = []
+    covariances = []
+    priors = []
+    log_dets = []  # Store log determinants for each class
+    regularization_value = 0.01
+    
+    # print("\nCOMPUTING CLASS STATISTICS")
+    
+    for i in range(total_classes):
+        try:
+            
+            class_indices = np.where(train_labels == i)[0]
+            # Ensure there are enough samples for the class
+            if len(class_indices) == 0:
+                raise ValueError(f"No samples found for class {i}.")
+            
+            if np.any(class_indices >= Y_train.shape[1]):
+                raise ValueError("Class indices out of bounds.")
+            
+            class_samples = Y_train[:, class_indices]
+            
+            if class_samples.size == 0:
+                raise ValueError(f"ERROR: No samples found for class {i}.")
+            
+            # Ensure class_samples is 2D with samples as columns
+            if class_samples.ndim == 1:
+                class_samples = class_samples[:, np.newaxis]
+                
+            mean = np.mean(class_samples, axis=1)
+            covariance = np.cov(class_samples, bias=True) + np.eye(class_samples.shape[0]) * regularization_value
+            prior = class_samples.shape[1] / Y_train.shape[1]
+            
+            # Compute the signed log determinant of the covariance matrix
+            sign, log_det = np.linalg.slogdet(covariance)
+            if sign <= 0:
+                raise np.linalg.LinAlgError("Covariance matrix is not positive definite.")
+            
+            means.append(mean)
+            covariances.append(covariance)
+            priors.append(prior)
+            log_dets.append(log_det)
+        except ValueError as e:
+            print(f"ValueError for class {i}: {e}")
+        except np.linalg.LinAlgError as e:
+            print(f"Error computing class {i} statistics: {e}")
+            raise
+        except Exception as e:
+            print(f"ERROR: An unexpected error occurred in compute_class_statistics_pca function:{e}")
+        
+    # print("COMPUTING CLASS STATISTICS COMPLETED")
+    return means, covariances, priors, log_dets
+
+def qda_score_pca(x, mean, covariance, prior, log_det):
+    try:
+        # print("\n COMPUTING qda score")
+        cov_inv = np.linalg.inv(covariance)
+        part1 = -0.5 * log_det
+        part2 = -0.5 * np.dot(np.dot((x - mean).T, cov_inv), (x - mean))
+        part3 = np.log(prior)
+        # print("COMPUTING qda score COMPLETED")
+        return part1 + part2 + part3
+    except np.linalg.LinAlgError:
+        print("Error inverting covariance matrix.")
+        raise
+    except Exception as e:
+        print(f"Unexpected error in qda_score_pca: {e}")
+        raise
+
+def classify_samples_pca(Y_test, means, covariances, priors, log_dets):
+    num_samples = Y_test.shape[1]
+    num_classes = len(means)
+    predicted_classes = np.zeros(num_samples)
+    
+    try:
+        # print("CLASSIFYING SAMPLES")
+        for i in range(num_samples):
+            scores = []
+            
+            for j in range(num_classes):
+                score = qda_score_pca(Y_test[:, i], means[j], covariances[j], priors[j], log_dets[j])
+                scores.append(score)
+            predicted_classes[i] = np.argmax(scores)
+    except Exception as e:
+        print(f"Error during classification: {e}")
+        raise
+    # print("CLASSIFYING SAMPLES COMPLETED")
+    return predicted_classes
+
 def main():
     
     try:
@@ -193,10 +286,10 @@ def main():
         train_images_vectorized = train_images.reshape(train_images.shape[0], -1).T  # Reshape to 784 x 60000
         
         # Checking the shape of the vectorized images
-        print("\nShape of vectorized training images:", train_images_vectorized.shape)  # Expected: (60000, 784)
+        print("\nShape of vectorized training images:", train_images_vectorized.shape)  # Expected: (784, 60000)
         
         # Create X to represent our 784x1000 data matrix
-        X = create_data_matrix(train_images_vectorized.T, train_labels)  # Transposed train_images_vectorized to get 60000x784 as input
+        X, subset_train_labels = create_data_matrix_and_labels(train_images_vectorized.T, train_labels)  # Transposed train_images_vectorized to get 60000x784 as input
         print("Shape of data matrix X:", X.shape)  # Should print (784, 1000)
         
         # Compute X_centered by removing mean from X
@@ -205,6 +298,7 @@ def main():
 
         # Compute Principal Component matrix U (eigenvectors sorted by eigenvalues)
         U, sorted_eigenvalues = apply_pca(X_centered)
+        
         print("\nPCA applied successfully.")
         # print(f"\nPrincipal Component Matrix U (Eigenvectors sorted by Eigenvalues): {U}")
         
@@ -217,7 +311,55 @@ def main():
         # Reconstruct and Plot Images
         for p in [5, 10, 20]: # Note as p value increases, reconstructed images should look more like their original counterparts
             reconstruct_and_plot_images(U, X_centered, mean_vector, train_labels, p)
-    
+        
+        # Q2 Last bullet point impl below
+        
+        # Vectorize and center the test images
+        test_images_vectorized = test_images.reshape(test_images.shape[0], -1).T
+        # Create X to represent our 784x1000 data matrix
+        X_test, subset_test_labels = create_data_matrix_and_labels(test_images_vectorized.T, test_labels)  # Transposed
+        
+        X_test_centered, mean_test_vector = remove_mean(X_test)
+        
+        # Perform dimensionality reduction on the test set and classify with QDA for various p values
+        for p in [5, 10, 20]:
+            print(f"\nUsing {p} principal components:")
+            
+            # Select the top-p components
+            U_p = U[:, :p]     
+            
+            # Compute class statistics on the PCA-transformed training data
+            Y_train = np.dot(U_p.T, X_test_centered)
+            Y_train_labels = subset_train_labels
+            
+            # print(f"Shape of PCA-transformed training data Y_train: {Y_train.shape}")  # Should be (# components, 1000) or similar
+            # # Verify that train_labels correspond to columns in Y_train
+            # print(f"Subset train labels length: {len(Y_train_labels)}")
+            
+            means, covariances, priors, log_dets = compute_class_statistics_pca(Y_train, Y_train_labels)
+            
+            # Project the centered test set onto these components
+            Y_test = np.dot(U_p.T, X_test_centered)
+            
+            # Verify the dimensions
+            # print(f"Shape of projected test data Y_test: {Y_test.shape}") # (5,1000) is correct
+            
+        
+            # print(f"Mean vector shape for class 0: {means[0].shape}")
+            # print(f"Covariance matrix shape for class 0: {covariances[0].shape}")
+            
+            # Classify the projected test set
+            predicted_classes = classify_samples_pca(Y_test, means, covariances, priors, log_dets)
+            
+            # Calculate and print the accuracy
+            accuracy = calculate_accuracy(predicted_classes, subset_test_labels)
+            print(f"Accuracy: {accuracy * 100:.2f}%")
+            
+            # Calculate and print class-wise accuracy
+            class_wise_accuracy = calculate_class_wise_accuracy(predicted_classes, subset_test_labels)
+            for i, acc in enumerate(class_wise_accuracy):
+                print(f"Class {i} accuracy: {acc * 100:.2f}%")
+        
     except Exception as e:
         print(f"ERROR: An unexpected error occurred in the main function: {e}")
 

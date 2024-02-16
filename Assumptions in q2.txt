@@ -6,4 +6,5 @@ matplotlib == 3.8.2
 1. mnist.npz file is present in same folder as the source code q1.py
 2. No of training samples and training labels for each sample are equal.
 3. q1.py must be present at the same level as q2.py.
-4. q1.py must have load_mnist_dataset function defined correctly.
+4. q1.py must have the following functions defined and working correctly:
+    load_mnist_dataset, calculate_accuracy, calculate_class_wise_accuracy
